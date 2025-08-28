@@ -9,7 +9,7 @@ int main()
     {
         int tid = omp_get_thread_num(); // lê o identificador da thread 
 
-        // distribui loop entre as threads (MAP) de forma dinamica
+        // distribui iteracoes do loop entre as threads (MAP) de forma dinamica
         #pragma omp for ordered schedule(dynamic) 
 
         for(i = 1; i <= 3; i++) 
