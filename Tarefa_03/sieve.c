@@ -23,13 +23,28 @@
         Executed in    1.27 secs    fish           external
             usr time    1.34 secs  175.00 micros    1.34 secs
             sys time    0.03 secs  210.00 micros    0.03 secs
+    
+    Execução Paralela (static):
+    5761455
+        ________________________________________________________
+        Executed in    1.13 secs    fish           external
+            usr time    6.63 secs  247.00 micros    6.63 secs
+            sys time    0.05 secs  275.00 micros    0.05 secs
 
-    Execução Paralela:
+    Execução Paralela (dynamic):
     5761455
         ________________________________________________________
         Executed in  385.98 millis    fish           external
             usr time    5.69 secs    204.00 micros    5.69 secs
             sys time    0.03 secs    217.00 micros    0.03 secs
+    
+    Execução Paralela (guided):
+    5761455
+        ________________________________________________________
+        Executed in    1.16 secs    fish           external
+            usr time    7.45 secs  171.00 micros    7.45 secs
+            sys time    0.07 secs  182.00 micros    0.07 secs
+
 */
 
 
@@ -52,7 +67,7 @@ int sieveOfEratosthenes(int n)
 
    memset(prime, true, (n+1)*sizeof(bool));
 
-   #pragma omp parallel for schedule(dynamic)
+   #pragma omp parallel for schedule(dynamic)  // #pragma omp parallel for schedule(static) // #pragma omp parallel for schedule(guided)
    for (int p = 2; p <= sqrt_n; p++)
    {
        // If prime[p] is not changed, then it is a prime 
