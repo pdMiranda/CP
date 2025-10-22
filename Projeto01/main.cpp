@@ -1,9 +1,13 @@
 #include "include/Network.hpp"
 #include "include/Dataset.hpp"
 #include <chrono> // Para medir o tempo de execução
+#include <omp.h> // Para configurar o número de threads
 
 int main()
 {
+#ifdef _OPENMP
+    omp_set_num_threads(NUM_THREADS);
+#endif
 
 	Neural::Dataset data_learning;
 	data_learning.loadInputOutputData(4, 3, "database/iris.txt");

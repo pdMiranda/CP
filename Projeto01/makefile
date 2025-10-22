@@ -1,16 +1,26 @@
-# Compila a versão sequencial por padrão
-VERSION = Sequencial
-COMPILER = mpic++ -std=c++11 -Wall -g
+# Normaliza as variáveis para aceitar abreviações
+VERSION = $(shell echo $(v) | tr '[:upper:]' '[:lower:]')
+THREADS = $(t)
+
+ifeq ($(VERSION),)
+	VERSION = Sequencial
+endif
+ifeq ($(THREADS),)
+	THREADS = $(shell nproc)
+endif
 
 # Diretórios
 INCLUDE_DIR = include
 SRC_DIR_BASE = src
-ifeq ($(VERSION),OpenMP)
+ifeq ($(VERSION),openmp)
 	SRC_DIR = $(SRC_DIR_BASE)/srcOpenMP
-else ifeq ($(VERSION),MPI)
+	COMPILER = g++ -std=c++11 -Wall -g -fopenmp -DNUM_THREADS=$(THREADS)
+else ifeq ($(VERSION),mpi)
 	SRC_DIR = $(SRC_DIR_BASE)/srcMPI
+	COMPILER = mpic++ -std=c++11 -Wall -g
 else
-	SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
+    SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
+    COMPILER = g++ -std=c++11 -Wall -g -DNUM_THREADS=1
 endif
 
 EXEC_PROG = neuralnetwork
