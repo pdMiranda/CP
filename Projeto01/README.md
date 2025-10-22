@@ -15,7 +15,7 @@ Para compilar e executar o código, siga os passos abaixo. Existem três versõe
 1. Compile o programa com o comando:
 
 ```bash
-make v=Sequencial
+make all v=sequencial
 ```
 
 2. Execute o programa com o comando:
@@ -29,7 +29,7 @@ make v=Sequencial
 1. Compile o programa com o comando, especificando o número de threads desejado:
 
 ```bash
-make v=OpenMP t=<número_de_threads>
+make all v=openmp t=<número_de_threads>
 ```
 
 Substitua `<número_de_threads>` pelo número de threads que deseja utilizar.
