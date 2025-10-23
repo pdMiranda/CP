@@ -1,5 +1,6 @@
 #include "../include/Dataset.hpp"
 #include <iomanip>
+#include <omp.h> // Adicionado para OpenMP
 
 namespace Neural {
 
@@ -70,15 +71,19 @@ void Dataset::loadInputOutputData(int n_input, int n_output, string file){
 
 void Dataset::normalize(vector<vector<double>> v) {
     
+    // Paraleliza o loop externo (colunas) com OpenMP
+    #pragma omp parallel for
     for (unsigned int i = 0; i < v[0].size(); i++){
         double max = v[0][i];
         double min = v[0][i];
         
+        // Cada thread calcula o min/max para sua(s) coluna(s)
         for (unsigned int j = 0; j < v.size(); j++){
             if (max < v[j][i]) max = v[j][i];
             if (min > v[j][i]) min = v[j][i];
         }
 
+        // Cada thread normaliza sua(s) coluna(s)
         for (unsigned int j = 0; j < v.size(); j++){
              input_data[j][i] = (v[j][i] - min) / (max - min);
         }

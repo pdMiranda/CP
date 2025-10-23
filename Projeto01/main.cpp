@@ -8,7 +8,8 @@
 
 int main(int argc, char* argv[])
 {
-#ifdef _OPENMP
+// Configura o número de threads (para OpenMP ou Híbrido)
+#if defined(_OPENMP) || defined(_MPI)
     omp_set_num_threads(NUM_THREADS);
 #endif
 
@@ -35,8 +36,10 @@ int main(int argc, char* argv[])
 	neural_network.setParameter(max_epochs, desired_hit_percent, error_tolerance);
 
 	#ifdef _MPI
+		// Para MPI, os parâmetros iniciais são definidos de forma diferente
 		neural_network.setParameter(max_epochs, desired_hit_percent, error_tolerance, 0.1, 3);
 	#endif
+
 	// Início da medição de tempo
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -44,10 +47,14 @@ int main(int argc, char* argv[])
 	neural_network.autoTraining(hidden_layer_limit, learning_rate_increase);
 	#endif
 
+	// Executa OpenMP puro (v=openmp)
 	#ifdef _OPENMP
+		#ifndef _MPI 
 		neural_network.autoTraining(hidden_layer_limit, learning_rate_increase);
+		#endif
 	#endif
 	
+	// Executa MPI 
 	#ifdef _MPI
 		neural_network.autoTrainingMPI(hidden_layer_limit, learning_rate_increase, rank, size);
 	#endif
@@ -56,8 +63,15 @@ int main(int argc, char* argv[])
 	auto end_time = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double> elapsed_time = end_time - start_time;
 
-	// Exibe o tempo de execução
-	std::cout << "Tempo de execução: " << elapsed_time.count() << " segundos" << std::endl;
+// Apenas o processo 0 imprime o tempo
+#ifdef _MPI
+	if (rank == 0) {
+#endif
+		// Exibe o tempo de execução
+		std::cout << "Tempo de execução: " << elapsed_time.count() << " segundos" << std::endl;
+#ifdef _MPI
+	}
+#endif
 
 	#ifdef _MPI
 	MPI_Finalize();

@@ -9,6 +9,10 @@ endif
 ifeq ($(THREADS),)
 	THREADS = $(shell nproc)
 endif
+# Adiciona um default para PROCESS caso 'p' não seja passado
+ifeq ($(PROCESS),)
+	PROCESS = 1
+endif
 
 # Diretórios
 INCLUDE_DIR = include
@@ -20,8 +24,7 @@ ifeq ($(VERSION),openmp)
 
 else ifeq ($(VERSION),mpi)
 	SRC_DIR = $(SRC_DIR_BASE)/srcMPI
-	# Adicionamos -D_MPI aqui 👇
-	COMPILER = mpic++ -std=c++11 -Wall -g -D_MPI -DNUM_THREADS=$(THREADS) -DPROCESS=$(PROCESS)
+	COMPILER = mpic++ -std=c++11 -Wall -g -fopenmp -D_MPI -DNUM_THREADS=$(THREADS) -DPROCESS=$(PROCESS)
 
 else
 	SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
@@ -48,7 +51,12 @@ $(EXEC_PROG): $(OBJECTS)
 # prevents make from getting confused
 .PHONY : run
 run:
+ifeq ($(VERSION),mpi)
+	@echo "Executando com $(PROCESS) processo(s) e $(THREADS) thread(s) por processo..."
+	mpirun -np $(PROCESS) ./$(EXEC_PROG)
+else
 	./$(EXEC_PROG)
+endif
 
 .PHONY : clean 
 clean:
