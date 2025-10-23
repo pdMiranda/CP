@@ -24,7 +24,7 @@ ifeq ($(VERSION),openmp)
 
 else ifeq ($(VERSION),mpi)
 	SRC_DIR = $(SRC_DIR_BASE)/srcMPI
-	COMPILER = mpic++ -std=c++11 -Wall -g -fopenmp -D_MPI -DNUM_THREADS=$(THREADS) -DPROCESS=$(PROCESS)
+	COMPILER = mpic++ -std=c++11 -Wall -g -fopenmp -D_MPI -DPROCESS=$(PROCESS) -DNUM_THREADS=$(THREADS)
 
 else
 	SRC_DIR = $(SRC_DIR_BASE)/srcSequencial

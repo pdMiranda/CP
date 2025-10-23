@@ -169,7 +169,7 @@ void Network::run(int rank, int size) {
         hit_percent = (global_correct * 100) / (output.size() * output_layer_size);
 }
 
-// ===================== Treinamento Híbrido (MPI + OpenMP) =====================
+// ===================== Treinamento MPI =====================
 void Network::trainingClassification(int rank, int size) {
     for (epoch = 0; epoch < max_epoch && hit_percent < desired_percent; epoch++) {
         // Cada processo MPI cuida de um "chunk"
@@ -205,11 +205,9 @@ void Network::autoTrainingMPI(int hidden_layer_limit, double learning_rate_incre
 
     for (hidden_layer_size = 3; hidden_layer_size <= hidden_layer_limit; hidden_layer_size++) {
         for (learning_rate = learning_rate_increase; learning_rate <= 1.0; learning_rate += learning_rate_increase) {
-            
-            // initializeWeight() agora é sincronizado via MPI
+
             initializeWeight(); 
-            
-            // trainingClassification() agora é híbrido (MPI + OpenMP)
+
             trainingClassification(rank, size);
 
             if (rank == 0){
