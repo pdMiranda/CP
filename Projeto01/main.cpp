@@ -2,11 +2,21 @@
 #include "include/Dataset.hpp"
 #include <chrono> // Para medir o tempo de execução
 #include <omp.h> // Para configurar o número de threads
+#ifdef _MPI
+#include <mpi.h>
+#endif
 
-int main()
+int main(int argc, char* argv[])
 {
 #ifdef _OPENMP
     omp_set_num_threads(NUM_THREADS);
+#endif
+
+#ifdef _MPI
+	MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 #endif
 
 	Neural::Dataset data_learning;
@@ -24,10 +34,23 @@ int main()
 	Neural::Network neural_network(input, output);
 	neural_network.setParameter(max_epochs, desired_hit_percent, error_tolerance);
 
+	#ifdef _MPI
+		neural_network.setParameter(max_epochs, desired_hit_percent, error_tolerance, 0.1, 3);
+	#endif
 	// Início da medição de tempo
 	auto start_time = std::chrono::high_resolution_clock::now();
 
+	#ifdef _SEQUENTIAL
 	neural_network.autoTraining(hidden_layer_limit, learning_rate_increase);
+	#endif
+
+	#ifdef _OPENMP
+		neural_network.autoTraining(hidden_layer_limit, learning_rate_increase);
+	#endif
+	
+	#ifdef _MPI
+		neural_network.autoTrainingMPI(hidden_layer_limit, learning_rate_increase, rank, size);
+	#endif
 
 	// Fim da medição de tempo
 	auto end_time = std::chrono::high_resolution_clock::now();
@@ -35,6 +58,10 @@ int main()
 
 	// Exibe o tempo de execução
 	std::cout << "Tempo de execução: " << elapsed_time.count() << " segundos" << std::endl;
+
+	#ifdef _MPI
+	MPI_Finalize();
+	#endif
 
 	return 0;
 }

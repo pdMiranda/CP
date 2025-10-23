@@ -1,6 +1,7 @@
 # Normaliza as variáveis para aceitar abreviações
 VERSION = $(shell echo $(v) | tr '[:upper:]' '[:lower:]')
 THREADS = $(t)
+PROCESS = $(p)
 
 ifeq ($(VERSION),)
 	VERSION = Sequencial
@@ -12,15 +13,19 @@ endif
 # Diretórios
 INCLUDE_DIR = include
 SRC_DIR_BASE = src
+
 ifeq ($(VERSION),openmp)
 	SRC_DIR = $(SRC_DIR_BASE)/srcOpenMP
 	COMPILER = g++ -std=c++11 -Wall -g -fopenmp -DNUM_THREADS=$(THREADS)
+
 else ifeq ($(VERSION),mpi)
 	SRC_DIR = $(SRC_DIR_BASE)/srcMPI
-	COMPILER = mpic++ -std=c++11 -Wall -g
+	# Adicionamos -D_MPI aqui 👇
+	COMPILER = mpic++ -std=c++11 -Wall -g -D_MPI -DNUM_THREADS=$(THREADS) -DPROCESS=$(PROCESS)
+
 else
-    SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
-    COMPILER = g++ -std=c++11 -Wall -g -DNUM_THREADS=1
+	SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
+	COMPILER = g++ -std=c++11 -Wall -g -D_SEQUENTIAL -DNUM_THREADS=1
 endif
 
 EXEC_PROG = neuralnetwork

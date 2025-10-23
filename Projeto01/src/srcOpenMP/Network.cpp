@@ -1,5 +1,5 @@
 #include "../include/Network.hpp"
-#include <omp.h> // Adicionado para OpenMP
+#include <omp.h>
 
 #ifndef NUM_THREADS
 #define NUM_THREADS omp_get_max_threads()

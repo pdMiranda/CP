@@ -67,11 +67,28 @@ private:
 	double learning_rate;
 	double error_tolerance;
 
+	struct BestNetworkMPIParams {
+        int epoch;
+        double learning_rate;
+        int hidden_layer;
+        std::vector<std::vector<double>> weight_input;
+        std::vector<std::vector<double>> weight_output;
+        BestNetworkMPIParams() : epoch(100000), learning_rate(0.0), hidden_layer(0) {}
+    };
+
+    BestNetworkMPIParams best_networkMPI;
+
 public:
 	Network();
 	Network(vector<vector<double>>, vector<vector<double>>);
 
 	void run();
+
+	#ifdef _MPI
+	void run(int rank, int size);
+	void trainingClassification(int rank, int size);
+	void autoTrainingMPI(int hidden_layer_limit, double learning_rate_increase, int rank, int size);
+	#endif
 
 	void trainingClassification();
 	void trainingTemporal();
