@@ -10,7 +10,6 @@ using namespace std;
 
 namespace Neural {
 
-// ===================== Construtores =====================
 Network::Network() { }
 
 Network::Network(vector<vector<double>> user_input, vector<vector<double>> user_output) {
@@ -19,7 +18,6 @@ Network::Network(vector<vector<double>> user_input, vector<vector<double>> user_
     output_layer_size = 3;
 }
 
-// ===================== Configuração =====================
 void Network::setParameter(int user_max_epoch, int user_desired_percent, double user_error_tolerance, double user_learning_rate, int user_hidden_layer_size) {
     setMaxEpoch(user_max_epoch);
     setLearningRate(user_learning_rate);
@@ -30,7 +28,6 @@ void Network::setParameter(int user_max_epoch, int user_desired_percent, double 
     initializeWeight();
 }
 
-// ===================== Forward Propagation =====================
 Network::ForwardPropagation Network::forwardPropagation(vector<double> input_line) {
     input_line.push_back(1.0); // bias
     ForwardPropagation forward(hidden_layer_size, output_layer_size);
@@ -52,7 +49,6 @@ Network::ForwardPropagation Network::forwardPropagation(vector<double> input_lin
     return forward;
 }
 
-// ===================== Backpropagation (Thread-Safe) =====================
 void Network::backPropagation(ForwardPropagation forward, vector<double> input_line, vector<double> output_line) {
     input_line.push_back(1.0); // bias
     BackPropagation back(hidden_layer_size);
@@ -82,7 +78,6 @@ void Network::backPropagation(ForwardPropagation forward, vector<double> input_l
         }
 }
 
-// ===================== Hit Rate =====================
 void Network::hitRateCount(vector<double> neural_output, unsigned int data_row) {
     for (int i = 0; i < output_layer_size; i++)
         if (abs(neural_output[i] - output[data_row][i]) < error_tolerance)
@@ -94,7 +89,6 @@ void Network::hitRateCalculate() {
     correct_output = 0;
 }
 
-// ===================== Inicialização (Sincronizada com MPI) =====================
 void Network::initializeWeight() {
     weight_input.resize(input_layer_size);
     for (int i = 0; i < input_layer_size; i++)
@@ -131,11 +125,9 @@ void Network::initializeWeight() {
     correct_output = 0;
 }
 
-// ===================== Funções de ativação =====================
 double Network::sigmoid(double z) { return 1 / (1 + exp(-z)); }
 double Network::sigmoidPrime(double z) { return exp(-z) / pow(1 + exp(-z), 2); }
 
-// ===================== Setters =====================
 void Network::setMaxEpoch(int m) { max_epoch = m; }
 void Network::setDesiredPercent(int d) { desired_percent = d; }
 void Network::setHiddenLayerSize(int h) { hidden_layer_size = h; }
@@ -144,7 +136,6 @@ void Network::setErrorTolerance(double e) { error_tolerance = e; }
 void Network::setInput(vector<vector<double>> i) { input = i; input_layer_size = i[0].size() + 1; }
 void Network::setOutput(vector<vector<double>> o) { output = o; output_layer_size = o[0].size(); }
 
-// ===================== Run Híbrido (MPI + OpenMP) =====================
 void Network::run(int rank, int size) {
     // Cada processo MPI cuida de um "chunk"
     int start = (input.size() * rank) / size;
@@ -169,15 +160,12 @@ void Network::run(int rank, int size) {
         hit_percent = (global_correct * 100) / (output.size() * output_layer_size);
 }
 
-// ===================== Treinamento MPI =====================
 void Network::trainingClassification(int rank, int size) {
     for (epoch = 0; epoch < max_epoch && hit_percent < desired_percent; epoch++) {
         // Cada processo MPI cuida de um "chunk"
         int start = (input.size() * rank) / size;
         int end = (input.size() * (rank + 1)) / size;
 
-        // OpenMP paraleliza o loop de backpropagation sobre o "chunk"
-        // (A função backPropagation foi tornada thread-safe com 'atomic')
         #pragma omp parallel for
         for (int i = start; i < end; i++) {
             ForwardPropagation forward = forwardPropagation(input[i]);
@@ -191,12 +179,10 @@ void Network::trainingClassification(int rank, int size) {
         for (int i = 0; i < hidden_layer_size; i++)
             MPI_Allreduce(MPI_IN_PLACE, weight_output[i].data(), output_layer_size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-        // run() agora é a versão híbrida
         run(rank, size);
     }
 }
 
-// ===================== Auto Training MPI =====================
 void Network::autoTrainingMPI(int hidden_layer_limit, double learning_rate_increase, int rank, int size) {
 
     if (rank == 0) { // Apenas Rank 0 imprime
@@ -225,8 +211,6 @@ void Network::autoTrainingMPI(int hidden_layer_limit, double learning_rate_incre
                 best_network.weight_output = weight_output;
             }
 
-            // Sincroniza os pesos (embora Allreduce já deva ter feito isso,
-            // esta é a lógica original. Vamos mantê-la por segurança).
             for (int i = 0; i < input_layer_size; i++)
                 MPI_Bcast(weight_input[i].data(), hidden_layer_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
