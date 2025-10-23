@@ -27,12 +27,17 @@ Este projeto utiliza um `makefile` para simplificar a compilação. O nome do ex
   ```bash
   make all v=sequencial
   make all v=openmp t=<numero-de-threads>
-  make all v=mpi t=<numero-de-threads> p=<numero-de-processos>
+  make all v=mpi p=<numero-de-processos> t=<numero-de-threads> 
+  make run v=mpi p=<numero-de-processos> t=<numero-de-threads>
   ```
 
 - Executar
   ```bash
     ./neuralnetwork
+  ```
+
+  ```bash
+    mpirun -np <numero-de-threads> ./neuralnetwork
   ```
   
 - Limpar Arquivos
