@@ -1,3 +1,21 @@
+/***
+    Architecture:             x86_64
+        CPU op-mode(s):         32-bit, 64-bit
+        Address sizes:          39 bits physical, 48 bits virtual
+        Byte Order:             Little Endian
+        Model name:             11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+            CPU family:           6
+            Model:                141
+            Thread(s) per core:   2
+            Core(s) per socket:   8
+            Socket(s):            1
+            Stepping:             1
+*/
+
+// time 6.003909
+
+// gcc -o mm_omp_gpu mm_seq.c -lrt -O3 -fopenmp
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -5,11 +23,12 @@
 
 void mm(double* a, double* b, double* c, int width) 
 {
-  // collapse(2) trata os dois loops aninhados como um único loop grande para paralelização
-  #pragma omp parallel for collapse(2)
+  #pragma omp target teams distribute parallel for collapse(2) \
+          map(to:a[0:width*width], b[0:width*width]) \
+          map(from:c[0:width*width])
   for (int i = 0; i < width; i++) {
     for (int j = 0; j < width; j++) {
-      double sum = 0; // sum já é 'private' por ser declarada dentro do loop
+      double sum = 0;
       for (int k = 0; k < width; k++) {
 	double x = a[i * width + k];
 	double y = b[k * width + j];
@@ -35,16 +54,14 @@ int main()
     }
   }
 
-  struct timespec start, end;
-  clock_gettime(CLOCK_REALTIME, &start);
-  double start_time = start.tv_sec + start.tv_nsec / 1e9;
+  double start_time = omp_get_wtime();
+  
   mm(a,b,c,width);
-  clock_gettime(CLOCK_REALTIME, &end);
-  double end_time = end.tv_sec + end.tv_nsec / 1e9;
+
+  double end_time = omp_get_wtime();
 
   printf("%f", end_time - start_time);
 
-  // Limpeza
   free(a);
   free(b);
   free(c);
