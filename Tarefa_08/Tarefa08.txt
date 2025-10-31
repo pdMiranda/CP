@@ -5,6 +5,20 @@
 
 // Informações da Maquina
 
+/***
+    Architecture:             x86_64
+        CPU op-mode(s):         32-bit, 64-bit
+        Address sizes:          39 bits physical, 48 bits virtual
+        Byte Order:             Little Endian
+        Model name:             11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+            CPU family:           6
+            Model:                141
+            Thread(s) per core:   2
+            Core(s) per socket:   8
+            Socket(s):            1
+            Stepping:             1
+*/
+
 // Questões envolvendo nvprof
 
 Ao rodar o comando descrito no canvas recebi um aviso sobre utilizar o NVIDIA Nsight Compute, uma vez que o nvprof não suporta dispositivos com capacidade 7.5 ou superior, porem as seguintes informações foram mostradas 
@@ -19,20 +33,6 @@ ncu --metrics gpu__warps_launched,warp_execution_efficiency ./mm_cuda
 Porem comecei a receber erro de permissão, segui o guia onde eu tinha que criar o arquivo de configuração da ferramenta para dar permissão de admin para todos os usuários, tentei rodar o comando de novo porem agora recebo apenas Command 'ncu' not found, tentei instalar usando sudo apt install porem o resultado era o mesmo, não tem permissão e depois não encontra o comando 
 
 Desculpa 
-
-/***
-    Architecture:             x86_64
-        CPU op-mode(s):         32-bit, 64-bit
-        Address sizes:          39 bits physical, 48 bits virtual
-        Byte Order:             Little Endian
-        Model name:             11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
-            CPU family:           6
-            Model:                141
-            Thread(s) per core:   2
-            Core(s) per socket:   8
-            Socket(s):            1
-            Stepping:             1
-*/
 
 CODIGO OPEN MP CPU
 
