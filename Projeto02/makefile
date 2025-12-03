@@ -1,78 +1,48 @@
-# Normaliza as variáveis para aceitar abreviações
-VERSION = $(shell echo $(v) | tr '[:upper:]' '[:lower:]')
-THREADS = $(t)
-PROCESS = $(p)
+# Makefile Híbrido OpenMP/GPU e CUDA
 
-ifeq ($(VERSION),)
-	VERSION = Sequencial
-endif
-ifeq ($(THREADS),)
-	THREADS = $(shell nproc)
-endif
-# Adiciona um default para PROCESS caso 'p' não seja passado
-ifeq ($(PROCESS),)
-	PROCESS = 1
-endif
+CXX = g++
+NVCC = nvcc
 
-# Diretórios
-INCLUDE_DIR = include
-SRC_DIR_BASE = src
+# Flags para o compilador C++ (Host)
+# -DENABLE_CUDA e -DENABLE_OPENMP habilitam os blocos no main.cpp
+# -fopenmp é necessário para o linker do OpenMP
+CXX_FLAGS = -O3 -std=c++14 -Iinclude -fopenmp -DENABLE_CUDA -DENABLE_OPENMP
 
-ifeq ($(VERSION),openmp)
-	SRC_DIR = $(SRC_DIR_BASE)/srcOpenMP
-	COMPILER = g++ -std=c++11 -Wall -g -fopenmp -fcf-protection=none -fno-stack-protector -DNUM_THREADS=$(THREADS)
-    # Uncomment the following line if you have offloading configured
-    # COMPILER += -foffload=nvptx-none
+# Flags específicas para OpenMP Offloading (se for usar a versão OpenMP na GPU)
+# Nota: No WSL, offloading OpenMP para Nvidia às vezes requer pacotes extras (gcc-offload-nvptx).
+# Se der erro de compilação no OpenMP, remova "-foffload=nvptx-none" para testar apenas CUDA.
+OMP_OFFLOAD_FLAGS = -foffload=nvptx-none 
 
-else ifeq ($(VERSION),cuda)
-	SRC_DIR = $(SRC_DIR_BASE)/srcCUDA
-	COMPILER = nvcc -std=c++11 -g -arch=sm_60 -D_CUDA -DNUM_THREADS=$(THREADS)
-    # Link against cudart is automatic with nvcc
+# Flags para o compilador CUDA (Device)
+# -Xcompiler -fopenmp garante que o nvcc saiba lidar com diretivas omp se houver cabeçalhos mistos
+NVCC_FLAGS = -O3 -Iinclude -arch=sm_75 -Xcompiler -fopenmp
 
-else ifeq ($(VERSION),mpi)
-	SRC_DIR = $(SRC_DIR_BASE)/srcMPI
-	COMPILER = mpic++ -std=c++11 -Wall -g -fopenmp -D_MPI -DPROCESS=$(PROCESS) -DNUM_THREADS=$(THREADS)
+# Arquivos
+COMMON_SRC = src/Network_Common.cpp src/Dataset.cpp
+OMP_SRC = src/Network_OpenMP.cpp
+CUDA_SRC = src/Network_CUDA.cu
+MAIN_SRC = main.cpp
 
-else
-	SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
-	COMPILER = g++ -std=c++11 -Wall -g -D_SEQUENTIAL -DNUM_THREADS=1
-endif
+EXEC = neuralnetwork
 
-EXEC_PROG = neuralnetwork
-BINARIES = $(EXEC_PROG)
+all: clean $(EXEC)
 
-# Busca os arquivos fontes e cabeçalhos
-SOURCES := $(shell find $(SRC_DIR) -name '*.cpp')
-# For CUDA, we might have .cu files
-CU_SOURCES := $(shell find $(SRC_DIR) -name '*.cu')
+$(EXEC):
+	@echo "Compilando códigos C++ comuns..."
+	$(CXX) $(CXX_FLAGS) -c $(COMMON_SRC)
+	
+	@echo "Compilando código OpenMP..."
+	$(CXX) $(CXX_FLAGS) $(OMP_OFFLOAD_FLAGS) -c $(OMP_SRC)
+	
+	@echo "Compilando Main..."
+	$(CXX) $(CXX_FLAGS) -c $(MAIN_SRC)
+	
+	@echo "Compilando Kernel CUDA..."
+	$(NVCC) $(NVCC_FLAGS) -c $(CUDA_SRC)
+	
+	@echo "Linkando executável final..."
+	# Usamos o nvcc para linkar porque ele resolve automaticamente as bibliotecas do CUDA (cudart)
+	$(NVCC) $(NVCC_FLAGS) -o $(EXEC) *.o -lgomp
 
-HEADERS := $(shell find $(INCLUDE_DIR) -name '*.hpp')
-
-# Objects
-OBJECTS = main.o $(SOURCES:.cpp=.o) $(CU_SOURCES:.cu=.o)
-
-all: clean $(EXEC_PROG)
-	@echo Neural Network Build Completed
-
-%.o: %.cpp $(HEADERS)
-	$(COMPILER) -I$(INCLUDE_DIR) -c -o $@ $< -w
-
-%.o: %.cu $(HEADERS)
-	$(COMPILER) -I$(INCLUDE_DIR) -c -o $@ $< -w
-
-$(EXEC_PROG): $(OBJECTS)
-	$(COMPILER) -o $(EXEC_PROG) $(OBJECTS)
-
-# prevents make from getting confused
-.PHONY : run
-run:
-ifeq ($(VERSION),mpi)
-	@echo "Executando com $(PROCESS) processo(s) e $(THREADS) thread(s) por processo..."
-	mpirun -np $(PROCESS) ./$(EXEC_PROG)
-else
-	./$(EXEC_PROG)
-endif
-
-.PHONY : clean 
 clean:
-	rm -rf $(EXEC_PROG) $(shell find . -name '*.o')
+	rm -f *.o $(EXEC)

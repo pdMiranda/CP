@@ -2,122 +2,39 @@
 #define NETWORK_HPP_
 
 #include <iostream>
-#include <math.h>
 #include <vector>
-#include <algorithm>
-#include <iomanip>
-
-using namespace std;
+#include <cmath>
+#include <cstring>
 
 namespace Neural {
 
-class Network {
-
-struct ForwardPropagation {
-	vector<double> sum_input_weight;
-	vector<double> sum_output_weigth;
-	vector<double> sum_input_weight_ativation;
-	vector<double> output;
-
-	ForwardPropagation(){}
-	ForwardPropagation(int size_input, int size_output) { 
-		sum_input_weight.resize(size_input);
-	    sum_output_weigth.resize(size_output);
-    	fill(sum_input_weight.begin(), sum_input_weight.end(), 0);
-		fill(sum_output_weigth.begin(), sum_output_weigth.end(), 0);
-    }
-}; 
-
-struct BackPropagation {
-	vector<double> delta_output_sum;
-	vector<double> delta_input_sum;
-
-	BackPropagation(){}
-	BackPropagation(int size_input) { 
-		delta_input_sum.resize(size_input);
-    	fill(delta_input_sum.begin(), delta_input_sum.end(), 0);
-    }
+struct NetworkConfig {
+    int input_size;
+    int output_size;
+    int hidden_size;
+    int max_epoch;
+    double learning_rate;
+    double error_tolerance;
+    int desired_percent;
 };
 
-struct network {
-	int epoch = 0;
-	int hidden_layer = 0;
-	double learning_rate = 0;
-	vector<double> weight_input;
-	vector<double> weight_output;
-} ;
-
+class Network {
 private:
-	int input_layer_size;
-	int output_layer_size;
-	int hidden_layer_size;
-
-    // Flattened vectors
-	vector<double> input;
-	vector<double> output;
-	vector<double> weight_input;
-	vector<double> weight_output;
-	
-	network best_network;
-
-	int epoch;
-	int max_epoch;
-
-	int correct_output;
-	int hit_percent;
-
-	double desired_percent;
-	double learning_rate;
-	double error_tolerance;
-
-	struct BestNetworkMPIParams {
-        int epoch;
-        double learning_rate;
-        int hidden_layer;
-        std::vector<double> weight_input;
-        std::vector<double> weight_output;
-        BestNetworkMPIParams() : epoch(100000), learning_rate(0.0), hidden_layer(0) {}
-    };
-
-    BestNetworkMPIParams best_networkMPI;
+    double* h_input;
+    double* h_output;
+    int n_rows;
+    int n_cols_in;
+    int n_cols_out;
 
 public:
-	Network();
-	Network(vector<vector<double>>, vector<vector<double>>);
+    Network(const std::vector<std::vector<double>>& input, const std::vector<std::vector<double>>& output);
+    ~Network();
 
-	void run();
+    void trainOpenMP(int num_models, int num_teams, int num_threads);
+    void trainCUDA(int num_models, int num_blocks, int num_threads);
 
-	#ifdef _MPI
-	void run(int rank, int size);
-	void trainingClassification(int rank, int size);
-	void autoTrainingMPI(int hidden_layer_limit, double learning_rate_increase, int rank, int size);
-	#endif
-
-	void trainingClassification();
-	void trainingTemporal();
-	void autoTraining(int, double);
-    
-    // New method for GPU/Parallel training
-    void trainModels(int num_models, int num_threads);
-
-	void initializeWeight();
-	void hitRateCount(vector<double>, unsigned int);
-	void hitRateCalculate();
-
-	ForwardPropagation forwardPropagation(vector<double>);
-	void backPropagation(ForwardPropagation, vector<double>, vector<double>);
-
-	double sigmoid(double);	
-	double sigmoidPrime(double);
-
-	void setInput(vector<vector<double>>);
-	void setOutput(vector<vector<double>>);
-	void setMaxEpoch(int);
-	void setDesiredPercent(int);
-	void setHiddenLayerSize(int);
-	void setLearningRate(double);
-	void setErrorTolerance(double);
-	void setParameter(int, int, double, double = 1, int = 1);
+    static double sigmoid(double z);
+    static double sigmoidPrime(double z);
 };
 
 }
