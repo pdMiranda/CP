@@ -22,3 +22,21 @@ Para compilar o projeto:
 
 ```bash
 make all
+```
+
+Para executar o projeto:
+
+```bash
+./neuralnetwork <modo> <num_models> <num_blocks_teams> <num_threads>
+```
+
+Onde:
+
+- `<modo>`: `cuda` para CUDA ou `openmp` para OpenMP.
+- `<num_models>`: Número de modelos a serem treinados simultaneamente.
+- `<num_blocks_teams>`: Em CUDA é Número de Blocos na Grid e em OpenMP é Número de Equipes
+- `<num_threads>`: Em CUDA é Threads por Bloco e em OpenMP é Número de Threads por Equipe
+
+```bash
+./neuralnetwork openmp 1000 32 128
+```
