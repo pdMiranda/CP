@@ -1,112 +1,108 @@
 #include "include/Network.hpp"
 #include "include/Dataset.hpp"
+#include <chrono>
+#include <omp.h>
 #include <iostream>
-#include <vector>
+#include <string>
+#include <unistd.h>
 
-#ifdef __CUDACC__
-#define HOST_DEVICE __host__ __device__
-#else
-#define HOST_DEVICE
+#ifdef _MPI
+#include <mpi.h>
 #endif
 
-int main(int argc, char *argv[])
+using namespace std;
+
+int main(int argc, char* argv[])
 {
-	try
-	{
-		std::cout << "Iniciando programa..." << std::endl;
+    int num_threads = 4; // Default
+    int num_models = 1;  // Default
+    
+    // Parse arguments
+    int opt;
+    while ((opt = getopt(argc, argv, "t:m:")) != -1) {
+        switch (opt) {
+        case 't':
+            num_threads = std::stoi(optarg);
+            break;
+        case 'm':
+            num_models = std::stoi(optarg);
+            break;
+        default:
+            std::cerr << "Usage: " << argv[0] << " -t <threads> -m <models>" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
 
-		int num_atributos = 4;
-		int num_classes = 3;
+#if defined(_OPENMP) || defined(_MPI)
+    omp_set_num_threads(num_threads);
+#endif
 
-		std::cout << "Carregando dataset..." << std::endl;
-		Neural::Dataset data_learning;
-		data_learning.loadInputOutputData(num_atributos, num_classes, "database/iris.txt");
+#ifdef _MPI
+	MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+#endif
 
-		std::cout << "Obtendo dados de entrada e saída..." << std::endl;
-		std::vector<std::vector<double>> input_vec = data_learning.getInput();
-		std::vector<std::vector<double>> output_vec = data_learning.getOutput();
+	Neural::Dataset data_learning;
+	data_learning.loadInputOutputData(4, 3, "database/iris.txt");
 
-		// Verificar se os dados foram carregados corretamente
-		if (input_vec.empty() || output_vec.empty())
-		{
-			std::cerr << "Erro: Dados de entrada ou saída vazios!" << std::endl;
-			return 1;
-		}
+	vector<vector<double>> input = data_learning.getInput();
+	vector<vector<double>> output = data_learning.getOutput();
 
-		// Converter vectors para arrays
-		int input_rows = input_vec.size();
-		int input_cols = input_vec[0].size();
-		int output_rows = output_vec.size();
-		int output_cols = output_vec[0].size();
+	int max_epochs = 1000;
+	int desired_hit_percent = 95;
+	double error_tolerance = 0.05;
+	int hidden_layer_limit = 15;
+	double learning_rate_increase = 0.25;
 
-		std::cout << "Tamanho dos dados - Input: " << input_rows
-				  << "x" << input_cols
-				  << ", Output: " << output_rows
-				  << "x" << output_cols << std::endl;
+	Neural::Network neural_network(input, output);
+    // Set parameters: max_epochs, desired_hit, error_tolerance, learning_rate, hidden_layer_size
+	neural_network.setParameter(max_epochs, desired_hit_percent, error_tolerance, 0.25, 15);
 
-		// Criar arrays linearizados
-		double *input_array = new double[input_rows * input_cols];
-		double *output_array = new double[output_rows * output_cols];
+	// Início da medição de tempo
+	auto start_time = std::chrono::high_resolution_clock::now();
 
-		// Copiar dados dos vectors para os arrays
-		for (int i = 0; i < input_rows; i++)
-		{
-			for (int j = 0; j < input_cols; j++)
-			{
-				input_array[i * input_cols + j] = input_vec[i][j];
-			}
-		}
+	#ifdef _SEQUENTIAL
+	// neural_network.autoTraining(hidden_layer_limit, learning_rate_increase);
+    // Sequential also needs to support trainModels if we want to test it
+    // But for now, let's assume we are building for OpenMP/CUDA
+    neural_network.trainModels(num_models, num_threads);
+	#endif
 
-		for (int i = 0; i < output_rows; i++)
-		{
-			for (int j = 0; j < output_cols; j++)
-			{
-				output_array[i * output_cols + j] = output_vec[i][j];
-			}
-		}
+	// Executa OpenMP puro (v=openmp)
+	#ifdef _OPENMP
+		#ifndef _MPI 
+		neural_network.trainModels(num_models, num_threads);
+		#endif
+	#endif
+	
+    // CUDA (v=cuda)
+    #ifdef _CUDA
+        neural_network.trainModels(num_models, num_threads);
+    #endif
 
-		int maximo_epocas_para_testar = 1000;
-		int taxa_acerto_desejada = 95;
-		double tolerancia_maxima_de_erro = 0.05;
-		int maximo_camadas_escondidas = 15;
-		double taxa_de_aprendizado = 0.25;
+	// Executa MPI 
+	#ifdef _MPI
+		neural_network.autoTrainingMPI(hidden_layer_limit, learning_rate_increase, rank, size);
+	#endif
 
-		std::cout << "Criando rede neural..." << std::endl;
-		Neural::Network neural_network(
-			input_array,
-			output_array,
-			input_rows,
-			input_cols,
-			output_rows,
-			output_cols);
+	// Fim da medição de tempo
+	auto end_time = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> elapsed_time = end_time - start_time;
 
-		std::cout << "Configurando parâmetros..." << std::endl;
-		neural_network.setParameter(
-			maximo_epocas_para_testar,
-			taxa_acerto_desejada,
-			tolerancia_maxima_de_erro,
-			taxa_de_aprendizado,
-			maximo_camadas_escondidas);
-
-		std::cout << "Iniciando treinamento..." << std::endl;
-		neural_network.autoTraining(maximo_camadas_escondidas, taxa_de_aprendizado);
-
-		std::cout << "Programa finalizado com sucesso!" << std::endl;
-
-		// Liberar memória
-		delete[] input_array;
-		delete[] output_array;
-
-		return 0;
+// Apenas o processo 0 imprime o tempo
+#ifdef _MPI
+	if (rank == 0) {
+#endif
+		std::cout << "Tempo de execução: " << elapsed_time.count() << " segundos" << std::endl;
+#ifdef _MPI
 	}
-	catch (const std::exception &e)
-	{
-		std::cerr << "Erro: " << e.what() << std::endl;
-		return 1;
-	}
-	catch (...)
-	{
-		std::cerr << "Erro desconhecido!" << std::endl;
-		return 1;
-	}
+#endif
+
+	#ifdef _MPI
+	MPI_Finalize();
+	#endif
+
+	return 0;
 }

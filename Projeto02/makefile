@@ -1,42 +1,78 @@
-# Valores padrão
-NUM_TEAMS ?= 4
-NUM_THREADS ?= 32
+# Normaliza as variáveis para aceitar abreviações
+VERSION = $(shell echo $(v) | tr '[:upper:]' '[:lower:]')
+THREADS = $(t)
+PROCESS = $(p)
 
-# Compiladores
-NVCC = nvcc
-CXX = g++
-
-# Flags de compilação
-CXXFLAGS = -Iinclude -O2 -fopenmp -DNUM_TEAMS=$(NUM_TEAMS) -DNUM_THREADS=$(NUM_THREADS)
-CXXFLAGS_GPU = -Iinclude -O2 -fopenmp -foffload=nvptx-none -fno-lto -DNUM_TEAMS=$(NUM_TEAMS) -DNUM_THREADS=$(NUM_THREADS)
-NVCCFLAGS = -Iinclude -O2 -Xcompiler -fopenmp
+ifeq ($(VERSION),)
+	VERSION = Sequencial
+endif
+ifeq ($(THREADS),)
+	THREADS = $(shell nproc)
+endif
+# Adiciona um default para PROCESS caso 'p' não seja passado
+ifeq ($(PROCESS),)
+	PROCESS = 1
+endif
 
 # Diretórios
-SRC_CUDA = srcCuda
-SRC_CPP = srcOpenMP_GPU
-INCLUDE = include
+INCLUDE_DIR = include
+SRC_DIR_BASE = src
 
-# Arquivos de saída
-CUDA_OUT = cuda_program
-CPP_OUT = cpp_program
-CPP_GPU_OUT = cpp_gpu_program
+ifeq ($(VERSION),openmp)
+	SRC_DIR = $(SRC_DIR_BASE)/srcOpenMP
+	COMPILER = g++ -std=c++11 -Wall -g -fopenmp -fcf-protection=none -fno-stack-protector -DNUM_THREADS=$(THREADS)
+    # Uncomment the following line if you have offloading configured
+    # COMPILER += -foffload=nvptx-none
 
-# Regras
-all: $(CUDA_OUT) $(CPP_OUT) $(CPP_GPU_OUT)
+else ifeq ($(VERSION),cuda)
+	SRC_DIR = $(SRC_DIR_BASE)/srcCUDA
+	COMPILER = nvcc -std=c++11 -g -arch=sm_60 -D_CUDA -DNUM_THREADS=$(THREADS)
+    # Link against cudart is automatic with nvcc
 
-# Versão CUDA
-$(CUDA_OUT): main.cpp $(SRC_CUDA)/Network.cu $(SRC_CPP)/Dataset.cpp
-	$(NVCC) $(NVCCFLAGS) -o $@ $^
+else ifeq ($(VERSION),mpi)
+	SRC_DIR = $(SRC_DIR_BASE)/srcMPI
+	COMPILER = mpic++ -std=c++11 -Wall -g -fopenmp -D_MPI -DPROCESS=$(PROCESS) -DNUM_THREADS=$(THREADS)
 
-# Versão OpenMP CPU
-$(CPP_OUT): main.cpp $(SRC_CPP)/Network.cpp $(SRC_CPP)/Dataset.cpp
-	$(CXX) $(CXXFLAGS) -o $@ $^
+else
+	SRC_DIR = $(SRC_DIR_BASE)/srcSequencial
+	COMPILER = g++ -std=c++11 -Wall -g -D_SEQUENTIAL -DNUM_THREADS=1
+endif
 
-# Versão OpenMP GPU
-$(CPP_GPU_OUT): main.cpp $(SRC_CPP)/Network.cpp $(SRC_CPP)/Dataset.cpp
-	$(CXX) $(CXXFLAGS_GPU) -o $@ $^
+EXEC_PROG = neuralnetwork
+BINARIES = $(EXEC_PROG)
 
+# Busca os arquivos fontes e cabeçalhos
+SOURCES := $(shell find $(SRC_DIR) -name '*.cpp')
+# For CUDA, we might have .cu files
+CU_SOURCES := $(shell find $(SRC_DIR) -name '*.cu')
+
+HEADERS := $(shell find $(INCLUDE_DIR) -name '*.hpp')
+
+# Objects
+OBJECTS = main.o $(SOURCES:.cpp=.o) $(CU_SOURCES:.cu=.o)
+
+all: clean $(EXEC_PROG)
+	@echo Neural Network Build Completed
+
+%.o: %.cpp $(HEADERS)
+	$(COMPILER) -I$(INCLUDE_DIR) -c -o $@ $< -w
+
+%.o: %.cu $(HEADERS)
+	$(COMPILER) -I$(INCLUDE_DIR) -c -o $@ $< -w
+
+$(EXEC_PROG): $(OBJECTS)
+	$(COMPILER) -o $(EXEC_PROG) $(OBJECTS)
+
+# prevents make from getting confused
+.PHONY : run
+run:
+ifeq ($(VERSION),mpi)
+	@echo "Executando com $(PROCESS) processo(s) e $(THREADS) thread(s) por processo..."
+	mpirun -np $(PROCESS) ./$(EXEC_PROG)
+else
+	./$(EXEC_PROG)
+endif
+
+.PHONY : clean 
 clean:
-	rm -f $(CUDA_OUT) $(CPP_OUT) $(CPP_GPU_OUT)
-
-.PHONY: all clean
+	rm -rf $(EXEC_PROG) $(shell find . -name '*.o')
